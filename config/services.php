@@ -44,6 +44,12 @@ return [
         'embedding_model'  => env('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'),
     ],
 
+    'chroma' => [
+        // Server ChromaDB self-hosted (vedi HasSlidesVectorStore).
+        'host'       => env('CHROMA_HOST', 'http://localhost:8000'),
+        'collection' => env('CHROMA_COLLECTION', 'gps_slides'),
+    ],
+
     // Password del mini pannello admin (upload/ingestione slide), niente sistema utenti.
     'admin_password' => env('ADMIN_PASSWORD'),
 

@@ -69,11 +69,8 @@ class SlideController extends Controller
             }
 
             $bot = GpsQaBot::make();
-            // Rimuove eventuali chunk di una precedente ingestione della stessa slide prima di riscrivere
-            // (il file del vector store non esiste ancora alla primissima ingestione in assoluto).
-            if ($this->vectorStoreFileExists()) {
-                $bot->resolveVectorStore()->deleteBy(self::SOURCE_TYPE, $slide->original_name);
-            }
+            // Rimuove eventuali chunk di una precedente ingestione della stessa slide prima di riscrivere.
+            $bot->resolveVectorStore()->deleteBy(self::SOURCE_TYPE, $slide->original_name);
             $bot->addDocuments($documents);
 
             $slide->update([
@@ -93,18 +90,10 @@ class SlideController extends Controller
 
     public function destroy(SlideDocument $slide): RedirectResponse
     {
-        if ($this->vectorStoreFileExists()) {
-            GpsQaBot::make()->resolveVectorStore()->deleteBy(self::SOURCE_TYPE, $slide->original_name);
-        }
+        GpsQaBot::make()->resolveVectorStore()->deleteBy(self::SOURCE_TYPE, $slide->original_name);
         Storage::disk('local')->delete($slide->path);
         $slide->delete();
 
         return back()->with('status', 'Slide rimossa.');
-    }
-
-    /** Il vector store è un file scritto in append: non esiste finché non si fa la prima ingestione. */
-    private function vectorStoreFileExists(): bool
-    {
-        return is_file(storage_path('app/rag/slides/slides.store'));
     }
 }

@@ -4,35 +4,26 @@ declare(strict_types=1);
 
 namespace App\Rag;
 
-use NeuronAI\RAG\VectorStore\FileVectorStore;
+use NeuronAI\RAG\VectorStore\ChromaVectorStore;
 use NeuronAI\RAG\VectorStore\VectorStoreInterface;
 
 /**
- * Vector store condiviso (stesso indice) tra GpsQaBot e GpsDocumentValidator:
+ * Vector store condiviso (stessa collection) tra GpsQaBot e GpsDocumentValidator:
  * entrambi cercano tra i passaggi delle slide del corso già ingerite.
  *
- * Crea il file dell'indice se non esiste ancora, così una similarity search
- * prima di qualunque ingestione (nessuna slide ancora caricata) non fallisce
- * per file mancante invece di restituire semplicemente zero risultati.
+ * Il backend è un server ChromaDB esterno (self-hosted, vedi config/services.php),
+ * raggiunto via HTTP. A differenza del precedente FileVectorStore, non c'è un
+ * file locale da inizializzare: la collection viene creata da Chroma stesso al
+ * primo addDocuments().
  */
 trait HasSlidesVectorStore
 {
     protected function vectorStore(): VectorStoreInterface
     {
-        $directory = storage_path('app/rag/slides');
-        $storeFile = $directory . '/slides.store';
-
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
-        }
-        if (!is_file($storeFile)) {
-            touch($storeFile);
-        }
-
-        return new FileVectorStore(
-            directory: $directory,
+        return new ChromaVectorStore(
+            collection: (string) config('services.chroma.collection'),
+            host: (string) config('services.chroma.host'),
             topK: $this->slidesTopK(),
-            name: 'slides',
         );
     }
 
