@@ -2,37 +2,174 @@
 <html lang="it">
 <head>
     <meta charset="utf-8">
-    <title>GPS Support Tool — Slide</title>
+    <title>CompassBot — Slide del corso</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 2rem; }
-        .wrap { max-width: 800px; margin: 0 auto; }
-        h1 { font-size: 1.3rem; }
-        header { display: flex; justify-content: space-between; align-items: baseline; }
-        a.logout { color: #94a3b8; font-size: 0.85rem; }
-        form.upload { background: #1e293b; padding: 1.2rem; border-radius: 8px; margin: 1.5rem 0; display: flex; gap: 0.6rem; align-items: center; }
-        input[type=file] { color: #e2e8f0; flex: 1; }
-        button { padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #2563eb; color: white; font-weight: 600; cursor: pointer; }
-        button.ingest { background: #16a34a; }
-        button.delete { background: #dc2626; }
+        :root {
+            --cb-graphite: #2e2a26;
+            --cb-amber: #d1701f;
+            --cb-paper: #f4ede0;
+            --cb-card: #ffffff;
+            --cb-border: #ece3d4;
+            --cb-muted: #948a79;
+            --cb-ok: #4d7a5f;
+            --cb-ok-bg: #e6efe9;
+            --cb-warn: #9a5b17;
+            --cb-warn-bg: #f7e8d4;
+            --cb-error: #b3261e;
+            --cb-error-bg: #fbeae8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(60rem 30rem at 10% -10%, #fbf1e2 0%, transparent 55%),
+                var(--cb-paper);
+            color: var(--cb-graphite);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 3rem 1.5rem;
+        }
+        .wrap { max-width: 920px; margin: 0 auto; }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2.5rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .brand { display: flex; align-items: center; gap: 1rem; }
+        .brand .tagline {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--cb-muted);
+            padding-left: 1rem;
+            border-left: 1.5px solid var(--cb-border);
+        }
+        .logout-form button {
+            background: var(--cb-card);
+            border: 1.5px solid var(--cb-border);
+            border-radius: 999px;
+            color: var(--cb-graphite);
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.55rem 1.2rem;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .logout-form button:hover { border-color: var(--cb-amber); background: #fff8f0; }
+
+        .flash {
+            background: var(--cb-ok-bg);
+            border-left: 4px solid var(--cb-ok);
+            padding: 0.9rem 1.2rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+        }
+        .flash-error {
+            background: var(--cb-error-bg);
+            border-left-color: var(--cb-error);
+            color: var(--cb-error);
+        }
+
+        .card {
+            background: var(--cb-card);
+            border-radius: 20px;
+            box-shadow: 0 1px 2px rgba(46, 42, 38, 0.04), 0 16px 40px -16px rgba(46, 42, 38, 0.14);
+        }
+        form.upload {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            padding: 1.5rem 1.75rem;
+        }
+        input[type=file] {
+            flex: 1;
+            font-family: inherit;
+            font-size: 0.9rem;
+            color: var(--cb-graphite);
+        }
+        form.upload button {
+            background: var(--cb-amber);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.4rem;
+            font-family: 'Space Grotesk', ui-sans-serif, sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 8px 18px -6px rgba(209, 112, 31, 0.5);
+            transition: filter 0.15s ease;
+        }
+        form.upload button:hover { filter: brightness(1.05); }
+
         table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 0.6rem; border-bottom: 1px solid #334155; font-size: 0.9rem; }
-        .status { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
-        .status-pending { background: #78350f; }
-        .status-ingested { background: #14532d; }
-        .status-failed { background: #7f1d1d; }
-        .flash { background: #14532d; padding: 0.7rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
-        .flash-error { background: #7f1d1d; }
-        .actions { display: flex; gap: 0.4rem; }
+        thead th {
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--cb-muted);
+            padding: 1.1rem 1.75rem 0.75rem;
+            border-bottom: 1px solid var(--cb-border);
+        }
+        tbody td {
+            padding: 1.05rem 1.75rem;
+            border-bottom: 1px solid var(--cb-border);
+            font-size: 0.95rem;
+            vertical-align: middle;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .status {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-pending { background: var(--cb-warn-bg); color: var(--cb-warn); }
+        .status-ingested { background: var(--cb-ok-bg); color: var(--cb-ok); }
+        .status-failed { background: var(--cb-error-bg); color: var(--cb-error); }
+
+        .actions { display: flex; gap: 0.6rem; }
+        .actions form { margin: 0; }
+        .actions button {
+            border-radius: 10px;
+            padding: 0.5rem 0.95rem;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: filter 0.15s ease, background 0.15s ease;
+        }
+        button.ingest { background: var(--cb-amber); color: #fff; border: none; }
+        button.ingest:hover { filter: brightness(1.05); }
+        button.delete { background: none; color: var(--cb-error); border: 1.5px solid #f0c9c4; }
+        button.delete:hover { background: var(--cb-error-bg); }
+        .empty { color: var(--cb-muted); padding: 2rem 1.75rem; text-align: center; }
     </style>
 </head>
 <body>
 <div class="wrap">
     <header>
-        <h1>Slide del corso GPS</h1>
-        <form method="POST" action="{{ route('admin.logout') }}">
+        <div class="brand">
+            @include('partials.compass-logo', ['size' => 44, 'layout' => 'row'])
+            <span class="tagline">Slide del corso GPS</span>
+        </div>
+        <form class="logout-form" method="POST" action="{{ route('admin.logout') }}">
             @csrf
-            <button type="submit" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:0;">Esci</button>
+            <button type="submit">Esci</button>
         </form>
     </header>
 
@@ -43,39 +180,43 @@
         <div class="flash flash-error">{{ $message }}</div>
     @enderror
 
-    <form class="upload" method="POST" action="{{ route('admin.slides.store') }}" enctype="multipart/form-data">
-        @csrf
-        <input type="file" name="pdf" accept="application/pdf" required>
-        <button type="submit">Carica PDF</button>
-    </form>
+    <div class="card">
+        <form class="upload" method="POST" action="{{ route('admin.slides.store') }}" enctype="multipart/form-data">
+            @csrf
+            <input type="file" name="pdf" accept="application/pdf" required>
+            <button type="submit">Carica PDF</button>
+        </form>
+    </div>
 
-    <table>
-        <thead>
-            <tr><th>Nome file</th><th>Stato</th><th>Passaggi</th><th></th></tr>
-        </thead>
-        <tbody>
-        @forelse ($slides as $slide)
-            <tr>
-                <td>{{ $slide->original_name }}</td>
-                <td><span class="status status-{{ $slide->status }}">{{ $slide->status }}</span></td>
-                <td>{{ $slide->chunk_count }}</td>
-                <td class="actions">
-                    <form method="POST" action="{{ route('admin.slides.ingest', $slide) }}">
-                        @csrf
-                        <button class="ingest" type="submit">Ingest</button>
-                    </form>
-                    <form method="POST" action="{{ route('admin.slides.destroy', $slide) }}" onsubmit="return confirm('Rimuovere questa slide e i relativi passaggi indicizzati?')">
-                        @csrf
-                        @method('DELETE')
-                        <button class="delete" type="submit">Rimuovi</button>
-                    </form>
-                </td>
-            </tr>
-        @empty
-            <tr><td colspan="4">Nessuna slide caricata.</td></tr>
-        @endforelse
-        </tbody>
-    </table>
+    <div class="card" style="margin-top: 1.5rem;">
+        <table>
+            <thead>
+                <tr><th>Nome file</th><th>Stato</th><th>Passaggi</th><th></th></tr>
+            </thead>
+            <tbody>
+            @forelse ($slides as $slide)
+                <tr>
+                    <td>{{ $slide->original_name }}</td>
+                    <td><span class="status status-{{ $slide->status }}">{{ $slide->status }}</span></td>
+                    <td>{{ $slide->chunk_count }}</td>
+                    <td class="actions">
+                        <form method="POST" action="{{ route('admin.slides.ingest', $slide) }}">
+                            @csrf
+                            <button class="ingest" type="submit">Ingest</button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.slides.destroy', $slide) }}" onsubmit="return confirm('Rimuovere questa slide e i relativi passaggi indicizzati?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="delete" type="submit">Rimuovi</button>
+                        </form>
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="4" class="empty">Nessuna slide caricata.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
 </div>
 </body>
 </html>
