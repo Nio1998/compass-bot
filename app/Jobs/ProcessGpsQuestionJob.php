@@ -38,7 +38,29 @@ class ProcessGpsQuestionJob implements ShouldQueue
                 ->getMessage()
                 ->getContent() ?? '';
 
-            $responder->send($this->responseUrl, $answer);
+            // La domanda digitata dallo studente non compare mai come messaggio
+            // Slack (comportamento standard degli slash command): la ripetiamo
+            // qui così resta un riferimento leggibile di cosa è stato chiesto.
+            $fallbackText = "Hai chiesto: {$this->question}\n\n{$answer}";
+            $blocks = [
+                [
+                    'type' => 'section',
+                    'text' => ['type' => 'mrkdwn', 'text' => "*Hai chiesto:*\n{$this->question}"],
+                ],
+                ['type' => 'divider'],
+                [
+                    'type' => 'section',
+                    'text' => ['type' => 'mrkdwn', 'text' => $answer],
+                ],
+                [
+                    'type' => 'context',
+                    'elements' => [
+                        ['type' => 'mrkdwn', 'text' => '🧭 *CompassBot* · Corso GPS'],
+                    ],
+                ],
+            ];
+
+            $responder->send($this->responseUrl, $fallbackText, 'in_channel', $blocks);
         } catch (Throwable $e) {
             Log::error('ProcessGpsQuestionJob fallito', ['err' => $e->getMessage()]);
             $responder->send(
