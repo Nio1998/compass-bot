@@ -16,14 +16,24 @@ use Illuminate\Support\Facades\Log;
  */
 class SlackResponder
 {
-    public function send(string $responseUrl, string $text, string $responseType = 'ephemeral'): void
+    /**
+     * @param array<int, array<string, mixed>>|null $blocks Block Kit opzionale;
+     *   $text resta comunque il fallback mostrato nelle notifiche e nei client
+     *   che non renderizzano i blocchi.
+     */
+    public function send(string $responseUrl, string $text, string $responseType = 'ephemeral', ?array $blocks = null): void
     {
+        $payload = [
+            'response_type' => $responseType,
+            'text'          => $text,
+        ];
+        if ($blocks !== null) {
+            $payload['blocks'] = $blocks;
+        }
+
         try {
             (new Client(['timeout' => 15]))->post($responseUrl, [
-                'json' => [
-                    'response_type' => $responseType,
-                    'text'          => $text,
-                ],
+                'json' => $payload,
             ]);
         } catch (\Throwable $e) {
             Log::error('SlackResponder: invio a response_url fallito', ['err' => $e->getMessage()]);

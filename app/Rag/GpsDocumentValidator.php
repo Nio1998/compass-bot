@@ -44,7 +44,7 @@ class GpsDocumentValidator extends RAG
     // recuperati aiutano a valutare il documento incollato su più criteri contemporaneamente.
     protected function slidesTopK(): int
     {
-        return 8;
+        return 14;
     }
 
     public function instructions(): string

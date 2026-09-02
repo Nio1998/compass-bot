@@ -29,6 +29,11 @@ trait HasSlidesVectorStore
 
     protected function slidesTopK(): int
     {
-        return 6;
+        // 10 invece di 6: con un corpus che mescola slide in italiano e in
+        // inglese, il match cross-lingua ha score di similarità più bassi
+        // di un match nella stessa lingua della domanda — un topK più
+        // ampio dà più margine perché il documento giusto rientri comunque
+        // tra i risultati anche quando non è il più simile in assoluto.
+        return 10;
     }
 }
