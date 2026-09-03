@@ -9,5 +9,5 @@
         alt="CompassBot"
         style="height: {{ $size }}px; width: {{ $size }}px; display: block;"
     >
-    <span style="font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: {{ round($size * 0.46) }}px; letter-spacing: -0.02em; color: #2e2a26; {{ $isStack ? 'text-align: center;' : '' }}">Compass<span style="color: #d1701f;">Bot</span></span>
+    <span style="font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: {{ round($size * 0.46) }}px; letter-spacing: -0.02em; color: #f5f3ff; {{ $isStack ? 'text-align: center;' : '' }}">Compass<span style="color: #38bdf8;">Bot</span></span>
 </div>
