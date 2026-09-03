@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\SlideController;
 use App\Http\Controllers\SlackCommandController;
+use App\Http\Controllers\SlackInteractionController;
 use App\Http\Middleware\VerifySlackSignature;
 use Illuminate\Support\Facades\Route;
 
@@ -16,6 +17,11 @@ Route::get('/', function () {
 Route::post('/slack/commands', [SlackCommandController::class, 'handle'])
     ->middleware(VerifySlackSignature::class)
     ->name('slack.commands');
+
+// Submission della modale di /gps-valida (tipo documento + upload PDF).
+Route::post('/slack/interactions', [SlackInteractionController::class, 'handle'])
+    ->middleware(VerifySlackSignature::class)
+    ->name('slack.interactions');
 
 // ── Admin (upload/ingestione slide) ───────────────────────────────────────────
 Route::prefix('admin')->name('admin.')->group(function () {
