@@ -9,27 +9,30 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --cb-graphite: #2e2a26;
-            --cb-amber: #d1701f;
-            --cb-paper: #f4ede0;
-            --cb-card: #ffffff;
-            --cb-border: #ece3d4;
-            --cb-muted: #948a79;
-            --cb-ok: #4d7a5f;
-            --cb-ok-bg: #e6efe9;
-            --cb-warn: #9a5b17;
-            --cb-warn-bg: #f7e8d4;
-            --cb-error: #b3261e;
-            --cb-error-bg: #fbeae8;
+            --cb-bg: #0d0b1f;
+            --cb-card: #15132e;
+            --cb-border: #2a2650;
+            --cb-purple: #a855f7;
+            --cb-blue: #38bdf8;
+            --cb-text: #f5f3ff;
+            --cb-muted: #9490c2;
+            --cb-input-bg: #1c1a3a;
+            --cb-ok: #34d399;
+            --cb-ok-bg: rgba(52, 211, 153, 0.12);
+            --cb-warn: #fbbf24;
+            --cb-warn-bg: rgba(251, 191, 36, 0.12);
+            --cb-error: #f87171;
+            --cb-error-bg: rgba(248, 113, 113, 0.12);
         }
         * { box-sizing: border-box; }
         body {
             margin: 0;
             min-height: 100vh;
             background:
-                radial-gradient(60rem 30rem at 10% -10%, #fbf1e2 0%, transparent 55%),
-                var(--cb-paper);
-            color: var(--cb-graphite);
+                radial-gradient(50rem 26rem at 8% -10%, rgba(168, 85, 247, 0.14) 0%, transparent 55%),
+                radial-gradient(40rem 24rem at 100% 0%, rgba(56, 189, 248, 0.1) 0%, transparent 55%),
+                var(--cb-bg);
+            color: var(--cb-text);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             padding: 3rem 1.5rem;
         }
@@ -54,7 +57,7 @@
             background: var(--cb-card);
             border: 1.5px solid var(--cb-border);
             border-radius: 999px;
-            color: var(--cb-graphite);
+            color: var(--cb-text);
             font-family: inherit;
             font-weight: 600;
             font-size: 0.85rem;
@@ -62,11 +65,12 @@
             cursor: pointer;
             transition: border-color 0.15s ease, background 0.15s ease;
         }
-        .logout-form button:hover { border-color: var(--cb-amber); background: #fff8f0; }
+        .logout-form button:hover { border-color: var(--cb-purple); background: #1b1840; }
 
         .flash {
             background: var(--cb-ok-bg);
             border-left: 4px solid var(--cb-ok);
+            color: var(--cb-ok);
             padding: 0.9rem 1.2rem;
             border-radius: 10px;
             font-size: 0.9rem;
@@ -81,8 +85,9 @@
 
         .card {
             background: var(--cb-card);
+            border: 1px solid var(--cb-border);
             border-radius: 20px;
-            box-shadow: 0 1px 2px rgba(46, 42, 38, 0.04), 0 16px 40px -16px rgba(46, 42, 38, 0.14);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 16px 40px -16px rgba(0, 0, 0, 0.5);
         }
         form.upload {
             display: flex;
@@ -94,11 +99,11 @@
             flex: 1;
             font-family: inherit;
             font-size: 0.9rem;
-            color: var(--cb-graphite);
+            color: var(--cb-text);
         }
         form.upload button {
-            background: var(--cb-amber);
-            color: #fff;
+            background: linear-gradient(135deg, var(--cb-purple), var(--cb-blue));
+            color: #0d0b1f;
             border: none;
             border-radius: 12px;
             padding: 0.75rem 1.4rem;
@@ -107,10 +112,10 @@
             font-size: 0.9rem;
             cursor: pointer;
             white-space: nowrap;
-            box-shadow: 0 8px 18px -6px rgba(209, 112, 31, 0.5);
+            box-shadow: 0 8px 18px -6px rgba(168, 85, 247, 0.45);
             transition: filter 0.15s ease;
         }
-        form.upload button:hover { filter: brightness(1.05); }
+        form.upload button:hover { filter: brightness(1.08); }
 
         table { width: 100%; border-collapse: collapse; }
         thead th {
@@ -153,9 +158,9 @@
             cursor: pointer;
             transition: filter 0.15s ease, background 0.15s ease;
         }
-        button.ingest { background: var(--cb-amber); color: #fff; border: none; }
-        button.ingest:hover { filter: brightness(1.05); }
-        button.delete { background: none; color: var(--cb-error); border: 1.5px solid #f0c9c4; }
+        button.ingest { background: linear-gradient(135deg, var(--cb-purple), var(--cb-blue)); color: #0d0b1f; border: none; }
+        button.ingest:hover { filter: brightness(1.08); }
+        button.delete { background: none; color: var(--cb-error); border: 1.5px solid rgba(248, 113, 113, 0.4); }
         button.delete:hover { background: var(--cb-error-bg); }
         .empty { color: var(--cb-muted); padding: 2rem 1.75rem; text-align: center; }
     </style>

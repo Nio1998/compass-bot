@@ -1,5 +1,7 @@
 # CompassBot
 
+![CompassBot](public/images/logo.png)
+
 A RAG-based (Retrieval-Augmented Generation) Slack bot for the **Software Project Management (GPS)** university course, built as a thesis project. Runs entirely locally: no calls to paid external LLM services, no data leaves the machine it runs on.
 
 ## What it does
