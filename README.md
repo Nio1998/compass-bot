@@ -1,95 +1,95 @@
 # CompassBot
 
-Bot Slack basato su RAG (Retrieval-Augmented Generation) per il corso di **Gestione dei Progetti Software (GPS)**, sviluppato come progetto di tesi. Gira interamente in locale: nessuna chiamata verso servizi LLM esterni a pagamento, nessun dato che lascia la macchina su cui è installato.
+A RAG-based (Retrieval-Augmented Generation) Slack bot for the **Software Project Management (GPS)** university course, built as a thesis project. Runs entirely locally: no calls to paid external LLM services, no data leaves the machine it runs on.
 
-## Cosa fa
+## What it does
 
-Due slash command Slack:
+Two Slack slash commands:
 
-- **`/gps-domanda`** — lo studente fa una domanda in linguaggio naturale sul programma del corso; il bot risponde recuperando i passaggi pertinenti dalle slide del corso (indicizzate come corpus vettoriale) e generando una risposta in italiano tramite un modello LLM locale.
-- **`/gps-valida`** — lo studente apre una modale Slack, sceglie il tipo di documento di project management che ha prodotto (WBS, Project Charter, Risk Management Plan, Minuta, ecc. — 17 tipi supportati) e allega il PDF. Il bot confronta il documento con le slide del corso e con un progetto esempio reale fornito dal docente, e restituisce un feedback strutturato: errori strutturali, elementi mancanti, suggerimenti.
+- **`/gps-domanda`** — a student asks a natural-language question about the course material; the bot answers by retrieving the relevant passages from the course slides (indexed as a vector corpus) and generating an answer in Italian with a local LLM.
+- **`/gps-valida`** — a student opens a Slack modal, picks the type of project management document they produced (WBS, Project Charter, Risk Management Plan, Meeting Minutes, etc. — 17 supported types) and attaches the PDF. The bot compares the document against the course slides and a real example project provided by the professor, and returns structured feedback: structural errors, missing elements, suggestions.
 
-## Architettura
+## Architecture
 
 ```
-Slack (slash command / modale)
+Slack (slash command / modal)
         │
         ▼
-Laravel 13 (PHP 8.4) ── coda (queue:work) per non bloccare la risposta a Slack
+Laravel 13 (PHP 8.4) ── queue worker (queue:work) so Slack's response doesn't block
         │
         ▼
-NeuronAI (framework RAG)
+NeuronAI (RAG framework)
         │
    ┌────┴────┐
    ▼         ▼
-Ollama    ChromaDB (self-hosted, vettori)
+Ollama    ChromaDB (self-hosted, vector store)
 (LLM +      │
-embedding)  ├── collection "gps_slides"           → usata SOLO da /gps-domanda
-            └── collection "gps_validation_refs"   → usata SOLO da /gps-valida
+embedding)  ├── collection "gps_slides"           → used ONLY by /gps-domanda
+            └── collection "gps_validation_refs"   → used ONLY by /gps-valida
 ```
 
-- **Ollama** gira in locale e fornisce sia il modello di generazione (`llama3`) sia il modello di embedding (`nomic-embed-text`).
-- **ChromaDB** gira in locale (server Python via virtualenv, non Docker) e mantiene due collection separate: le slide del corso non vengono mai toccate dalla validazione documenti, e viceversa.
-- **ngrok** espone l'endpoint Laravel locale a Slack durante lo sviluppo (in produzione andrebbe sostituito con un dominio pubblico reale).
+- **Ollama** runs locally and provides both the generation model (`llama3`) and the embedding model (`nomic-embed-text`).
+- **ChromaDB** runs locally (a Python server via virtualenv, not Docker) and keeps two separate collections: the course slides are never touched by the document-validation flow, and vice versa.
+- **ngrok** exposes the local Laravel endpoint to Slack during development (in production this would be replaced with a real public domain).
 
-## Struttura del progetto
+## Project structure
 
 ```
 app/
-├── Rag/                        Logica RAG e dominio applicativo
-│   ├── GpsQaBot.php                bot di /gps-domanda
-│   ├── GpsDocumentValidator.php    bot di /gps-valida (retrieval filtrato per tipo documento)
-│   ├── DocumentTypes.php           mappatura dei 17 tipi documento → fonti pertinenti
-│   ├── ValidationFeedback.php      schema dell'output strutturato del validatore
-│   ├── ChromaFilteredVectorStore.php  vector store con filtro per nome file sorgente
-│   ├── CompositeVectorStore.php    unisce slide + progetto esempio in un'unica ricerca
-│   ├── TranslateToItalian.php      traduzione post-hoc per garantire risposte in italiano
-│   ├── PrivacyRedactor.php         oscura nomi reali/nome progetto prima dell'invio a Slack
-│   └── SmalotPdfReader.php         estrazione testo dai PDF caricati
+├── Rag/                        RAG logic and application domain
+│   ├── GpsQaBot.php                /gps-domanda bot
+│   ├── GpsDocumentValidator.php    /gps-valida bot (retrieval filtered by document type)
+│   ├── DocumentTypes.php           mapping of the 17 document types → relevant sources
+│   ├── ValidationFeedback.php      schema for the validator's structured output
+│   ├── ChromaFilteredVectorStore.php  vector store with a filter on source file name
+│   ├── CompositeVectorStore.php    merges slides + example project into a single search
+│   ├── TranslateToItalian.php      post-hoc translation to keep answers in Italian
+│   ├── PrivacyRedactor.php         redacts real names/project name before sending to Slack
+│   └── SmalotPdfReader.php         text extraction from uploaded PDFs
 ├── Http/Controllers/
-│   ├── SlackCommandController.php      riceve gli slash command
-│   ├── SlackInteractionController.php  riceve la submission della modale di /gps-valida
-│   └── Admin/                          pannello web per caricare/gestire le slide indicizzate
-├── Jobs/                        Elaborazione in coda (Ollama può metterci più dei 3s che Slack concede)
+│   ├── SlackCommandController.php      receives the slash commands
+│   ├── SlackInteractionController.php  receives the /gps-valida modal submission
+│   └── Admin/                          web panel to upload/manage indexed slides
+├── Jobs/                        Queued processing (Ollama can take longer than the 3s Slack allows)
 │   ├── ProcessGpsQuestionJob.php
 │   └── ProcessGpsValidationFileJob.php
 ├── Services/
-│   ├── SlackApi.php             chiamate autenticate alle API Slack (modali, download file, messaggi)
-│   └── SlackResponder.php       invio della risposta tramite response_url dello slash command
-└── Console/Commands/            comandi CLI per import corpus e test
-scripts/                     avvio/arresto dell'intero stack locale
+│   ├── SlackApi.php             authenticated calls to the Slack API (modals, file download, messages)
+│   └── SlackResponder.php       sends the reply via the slash command's response_url
+└── Console/Commands/            CLI commands for corpus import and testing
+scripts/                     start/stop the entire local stack
 ```
 
-## Requisiti
+## Requirements
 
-- PHP 8.3+ (sviluppato con 8.4), Composer
-- Python 3.12+ (per ChromaDB)
-- [Ollama](https://ollama.com) installato in locale
-- Un workspace Slack in cui poter creare una app (slash command + bot token)
-- [ngrok](https://ngrok.com) (o equivalente) per esporre l'ambiente locale a Slack durante lo sviluppo
+- PHP 8.3+ (built with 8.4), Composer
+- Python 3.12+ (for ChromaDB)
+- [Ollama](https://ollama.com) installed locally
+- A Slack workspace where you can create an app (slash commands + bot token)
+- [ngrok](https://ngrok.com) (or equivalent) to expose the local environment to Slack during development
 
-## Installazione locale
+## Local installation
 
-### 1. Clona e installa le dipendenze PHP
+### 1. Clone and install PHP dependencies
 
 ```bash
-git clone <url-repo> compass-bot
+git clone <repo-url> compass-bot
 cd compass-bot
 composer install
 cp .env.example .env
 php artisan key:generate
 ```
 
-### 2. Configura Ollama
+### 2. Set up Ollama
 
 ```bash
 ollama pull llama3
 ollama pull nomic-embed-text
 ```
 
-Ollama va lasciato in esecuzione in background (`ollama serve`, di solito già gestito dall'app Ollama su macOS).
+Ollama needs to stay running in the background (`ollama serve`, usually already handled by the Ollama app on macOS).
 
-### 3. Configura ChromaDB (self-hosted, senza Docker)
+### 3. Set up ChromaDB (self-hosted, no Docker)
 
 ```bash
 python3 -m venv ~/chroma-server/venv
@@ -97,68 +97,68 @@ source ~/chroma-server/venv/bin/activate
 pip install chromadb
 ```
 
-Il server va avviato con `chroma run --path ~/chroma-server/data --port 8000` (lo script `scripts/start-local.sh` lo fa già automaticamente).
+The server is started with `chroma run --path ~/chroma-server/data --port 8000` (`scripts/start-local.sh` already does this automatically).
 
-### 4. Database e coda
+### 4. Database and queue
 
 ```bash
 php artisan migrate
 ```
 
-Il progetto usa SQLite (`DB_CONNECTION=sqlite`) e una coda su database (`QUEUE_CONNECTION=database`) — non serve Redis.
+The project uses SQLite (`DB_CONNECTION=sqlite`) and a database-backed queue (`QUEUE_CONNECTION=database`) — no Redis required.
 
-### 5. Configura `.env`
+### 5. Configure `.env`
 
-Chiavi da impostare (vedi `.env.example` per l'elenco completo):
+Keys to set (see `.env.example` for the full list):
 
-| Variabile | Descrizione |
+| Variable | Description |
 |---|---|
-| `SLACK_SIGNING_SECRET` | Firma dell'app Slack, per verificare che le richieste arrivino davvero da Slack |
-| `SLACK_BOT_USER_OAUTH_TOKEN` | Bot Token OAuth (`xoxb-...`), con scope `commands`, `chat:write`, `im:write`, `files:read` |
-| `OLLAMA_URL` / `OLLAMA_MODEL` / `OLLAMA_EMBEDDING_MODEL` | Endpoint e modelli Ollama |
-| `CHROMA_HOST` / `CHROMA_COLLECTION` / `CHROMA_VALIDATION_COLLECTION` | Endpoint ChromaDB e nomi delle due collection |
-| `ADMIN_PASSWORD` | Password del pannello `/admin` per caricare le slide |
+| `SLACK_SIGNING_SECRET` | Slack app signing secret, used to verify requests really come from Slack |
+| `SLACK_BOT_USER_OAUTH_TOKEN` | Bot Token OAuth (`xoxb-...`), with scopes `commands`, `chat:write`, `im:write`, `files:read` |
+| `OLLAMA_URL` / `OLLAMA_MODEL` / `OLLAMA_EMBEDDING_MODEL` | Ollama endpoint and models |
+| `CHROMA_HOST` / `CHROMA_COLLECTION` / `CHROMA_VALIDATION_COLLECTION` | ChromaDB endpoint and the two collection names |
+| `ADMIN_PASSWORD` | Password for the `/admin` panel used to upload slides |
 
-### 6. Crea l'app Slack
+### 6. Create the Slack app
 
-Sul workspace Slack di test, crea una app con:
-- due slash command, `/gps-domanda` e `/gps-valida`, entrambi puntati a `https://<url-pubblico>/slack/commands`
-- una Interactivity Request URL puntata a `https://<url-pubblico>/slack/interactions` (serve alla modale di `/gps-valida`)
+On your test Slack workspace, create an app with:
+- two slash commands, `/gps-domanda` and `/gps-valida`, both pointed at `https://<public-url>/slack/commands`
+- an Interactivity Request URL pointed at `https://<public-url>/slack/interactions` (needed for the `/gps-valida` modal)
 - Bot Token Scopes: `commands`, `chat:write`, `im:write`, `files:read`
 
-### 7. Avvia tutto
+### 7. Start everything
 
 ```bash
 scripts/start-local.sh
 ```
 
-Lo script avvia (se non già attivi) Ollama, ChromaDB, il server Laravel (porta 8080), il worker della coda e un tunnel ngrok, e stampa l'URL pubblico da usare nella configurazione dell'app Slack. Per fermare tutto: `scripts/stop-local.sh`. Dopo ogni modifica al codice PHP che riguarda la logica del bot, riavviare solo il worker con `scripts/restart-queue.sh` (il worker carica le classi PHP una sola volta all'avvio e non si accorge da solo dei file cambiati).
+The script starts (if not already running) Ollama, ChromaDB, the Laravel server (port 8080), the queue worker, and an ngrok tunnel, and prints the public URL to use in the Slack app configuration. To stop everything: `scripts/stop-local.sh`. After any code change that affects bot logic, restart only the queue worker with `scripts/restart-queue.sh` (the worker loads PHP classes once at startup and won't pick up changed files on its own).
 
-### 8. Indicizza il corpus
+### 8. Index the corpus
 
 ```bash
-# slide del corso, usate da /gps-domanda e /gps-valida
-php artisan slides:import /percorso/alle/slide
+# course slides, used by both /gps-domanda and /gps-valida
+php artisan slides:import /path/to/slides
 
-# progetto esempio (documenti di riferimento reali), usato solo da /gps-valida
-php artisan validation-refs:import /percorso/al/progetto/esempio
+# example project (real reference documents), used only by /gps-valida
+php artisan validation-refs:import /path/to/example/project
 ```
 
-In alternativa alle slide si può usare il pannello `/admin/slides` (login con `ADMIN_PASSWORD`) per caricare e indicizzare i PDF da browser.
+Slides can also be uploaded and indexed from the browser via the `/admin/slides` panel (log in with `ADMIN_PASSWORD`).
 
-## Comandi utili
+## Useful commands
 
-| Comando | Cosa fa |
+| Command | What it does |
 |---|---|
-| `php artisan slides:import <cartella>` | Importa e indicizza in blocco i PDF delle slide |
-| `php artisan validation-refs:import <cartella>` | Importa e indicizza i documenti di riferimento del progetto esempio |
-| `php artisan test:gps-domanda` | Esegue un set di domande di test contro `/gps-domanda` e stampa le risposte |
-| `php artisan test:gps-valida <cartella-pdf-di-prova>` | Verifica il retrieval e valida un campione di PDF per tutti i 17 tipi documento |
+| `php artisan slides:import <folder>` | Bulk-imports and indexes the slide PDFs |
+| `php artisan validation-refs:import <folder>` | Imports and indexes the example project's reference documents |
+| `php artisan test:gps-domanda` | Runs a set of test questions against `/gps-domanda` and prints the answers |
+| `php artisan test:gps-valida <sample-pdf-folder>` | Checks retrieval and validates a sample PDF for all 17 document types |
 
-## Limiti noti
+## Known limitations
 
-Il modello LLM locale (8 miliardi di parametri, scelto per restare offline e senza costi) non garantisce un comportamento stabile a parità di input: stesso documento, esecuzioni diverse possono produrre risultati di qualità sensibilmente diversa. Sono stati introdotti alcuni meccanismi di mitigazione (output strutturato via JSON schema, retry automatico, traduzione post-hoc, filtro di privacy sui nomi reali) ma il non determinismo di fondo resta un limite strutturale, non un bug risolvibile. Dettagli, metodologia di test e dati completi nei report di validazione prodotti durante lo sviluppo.
+The local LLM (8 billion parameters, chosen to stay offline and free of cost) does not guarantee stable behavior for identical inputs: the same document, run twice, can produce meaningfully different results. Several mitigations have been introduced (structured output via JSON schema, automatic retries, post-hoc translation, a privacy filter for real names) but the underlying non-determinism remains a structural limitation, not a fixable bug. Full details, test methodology, and data are in the validation reports produced during development.
 
-## Autore
+## Author
 
-Antonio De Lucia — progetto di tesi, Università degli Studi di Salerno.
+Antonio De Lucia — thesis project, University of Salerno.
