@@ -1,58 +1,164 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# CompassBot
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Bot Slack basato su RAG (Retrieval-Augmented Generation) per il corso di **Gestione dei Progetti Software (GPS)**, sviluppato come progetto di tesi. Gira interamente in locale: nessuna chiamata verso servizi LLM esterni a pagamento, nessun dato che lascia la macchina su cui è installato.
 
-## About Laravel
+## Cosa fa
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Due slash command Slack:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **`/gps-domanda`** — lo studente fa una domanda in linguaggio naturale sul programma del corso; il bot risponde recuperando i passaggi pertinenti dalle slide del corso (indicizzate come corpus vettoriale) e generando una risposta in italiano tramite un modello LLM locale.
+- **`/gps-valida`** — lo studente apre una modale Slack, sceglie il tipo di documento di project management che ha prodotto (WBS, Project Charter, Risk Management Plan, Minuta, ecc. — 17 tipi supportati) e allega il PDF. Il bot confronta il documento con le slide del corso e con un progetto esempio reale fornito dal docente, e restituisce un feedback strutturato: errori strutturali, elementi mancanti, suggerimenti.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Architettura
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+Slack (slash command / modale)
+        │
+        ▼
+Laravel 13 (PHP 8.4) ── coda (queue:work) per non bloccare la risposta a Slack
+        │
+        ▼
+NeuronAI (framework RAG)
+        │
+   ┌────┴────┐
+   ▼         ▼
+Ollama    ChromaDB (self-hosted, vettori)
+(LLM +      │
+embedding)  ├── collection "gps_slides"           → usata SOLO da /gps-domanda
+            └── collection "gps_validation_refs"   → usata SOLO da /gps-valida
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+- **Ollama** gira in locale e fornisce sia il modello di generazione (`llama3`) sia il modello di embedding (`nomic-embed-text`).
+- **ChromaDB** gira in locale (server Python via virtualenv, non Docker) e mantiene due collection separate: le slide del corso non vengono mai toccate dalla validazione documenti, e viceversa.
+- **ngrok** espone l'endpoint Laravel locale a Slack durante lo sviluppo (in produzione andrebbe sostituito con un dominio pubblico reale).
 
-## Contributing
+## Struttura del progetto
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
+app/
+├── Rag/                        Logica RAG e dominio applicativo
+│   ├── GpsQaBot.php                bot di /gps-domanda
+│   ├── GpsDocumentValidator.php    bot di /gps-valida (retrieval filtrato per tipo documento)
+│   ├── DocumentTypes.php           mappatura dei 17 tipi documento → fonti pertinenti
+│   ├── ValidationFeedback.php      schema dell'output strutturato del validatore
+│   ├── ChromaFilteredVectorStore.php  vector store con filtro per nome file sorgente
+│   ├── CompositeVectorStore.php    unisce slide + progetto esempio in un'unica ricerca
+│   ├── TranslateToItalian.php      traduzione post-hoc per garantire risposte in italiano
+│   ├── PrivacyRedactor.php         oscura nomi reali/nome progetto prima dell'invio a Slack
+│   └── SmalotPdfReader.php         estrazione testo dai PDF caricati
+├── Http/Controllers/
+│   ├── SlackCommandController.php      riceve gli slash command
+│   ├── SlackInteractionController.php  riceve la submission della modale di /gps-valida
+│   └── Admin/                          pannello web per caricare/gestire le slide indicizzate
+├── Jobs/                        Elaborazione in coda (Ollama può metterci più dei 3s che Slack concede)
+│   ├── ProcessGpsQuestionJob.php
+│   └── ProcessGpsValidationFileJob.php
+├── Services/
+│   ├── SlackApi.php             chiamate autenticate alle API Slack (modali, download file, messaggi)
+│   └── SlackResponder.php       invio della risposta tramite response_url dello slash command
+└── Console/Commands/            comandi CLI per import corpus e test
+scripts/                     avvio/arresto dell'intero stack locale
+```
 
-## Code of Conduct
+## Requisiti
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- PHP 8.3+ (sviluppato con 8.4), Composer
+- Python 3.12+ (per ChromaDB)
+- [Ollama](https://ollama.com) installato in locale
+- Un workspace Slack in cui poter creare una app (slash command + bot token)
+- [ngrok](https://ngrok.com) (o equivalente) per esporre l'ambiente locale a Slack durante lo sviluppo
 
-## Security Vulnerabilities
+## Installazione locale
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 1. Clona e installa le dipendenze PHP
 
-## License
+```bash
+git clone <url-repo> compass-bot
+cd compass-bot
+composer install
+cp .env.example .env
+php artisan key:generate
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 2. Configura Ollama
+
+```bash
+ollama pull llama3
+ollama pull nomic-embed-text
+```
+
+Ollama va lasciato in esecuzione in background (`ollama serve`, di solito già gestito dall'app Ollama su macOS).
+
+### 3. Configura ChromaDB (self-hosted, senza Docker)
+
+```bash
+python3 -m venv ~/chroma-server/venv
+source ~/chroma-server/venv/bin/activate
+pip install chromadb
+```
+
+Il server va avviato con `chroma run --path ~/chroma-server/data --port 8000` (lo script `scripts/start-local.sh` lo fa già automaticamente).
+
+### 4. Database e coda
+
+```bash
+php artisan migrate
+```
+
+Il progetto usa SQLite (`DB_CONNECTION=sqlite`) e una coda su database (`QUEUE_CONNECTION=database`) — non serve Redis.
+
+### 5. Configura `.env`
+
+Chiavi da impostare (vedi `.env.example` per l'elenco completo):
+
+| Variabile | Descrizione |
+|---|---|
+| `SLACK_SIGNING_SECRET` | Firma dell'app Slack, per verificare che le richieste arrivino davvero da Slack |
+| `SLACK_BOT_USER_OAUTH_TOKEN` | Bot Token OAuth (`xoxb-...`), con scope `commands`, `chat:write`, `im:write`, `files:read` |
+| `OLLAMA_URL` / `OLLAMA_MODEL` / `OLLAMA_EMBEDDING_MODEL` | Endpoint e modelli Ollama |
+| `CHROMA_HOST` / `CHROMA_COLLECTION` / `CHROMA_VALIDATION_COLLECTION` | Endpoint ChromaDB e nomi delle due collection |
+| `ADMIN_PASSWORD` | Password del pannello `/admin` per caricare le slide |
+
+### 6. Crea l'app Slack
+
+Sul workspace Slack di test, crea una app con:
+- due slash command, `/gps-domanda` e `/gps-valida`, entrambi puntati a `https://<url-pubblico>/slack/commands`
+- una Interactivity Request URL puntata a `https://<url-pubblico>/slack/interactions` (serve alla modale di `/gps-valida`)
+- Bot Token Scopes: `commands`, `chat:write`, `im:write`, `files:read`
+
+### 7. Avvia tutto
+
+```bash
+scripts/start-local.sh
+```
+
+Lo script avvia (se non già attivi) Ollama, ChromaDB, il server Laravel (porta 8080), il worker della coda e un tunnel ngrok, e stampa l'URL pubblico da usare nella configurazione dell'app Slack. Per fermare tutto: `scripts/stop-local.sh`. Dopo ogni modifica al codice PHP che riguarda la logica del bot, riavviare solo il worker con `scripts/restart-queue.sh` (il worker carica le classi PHP una sola volta all'avvio e non si accorge da solo dei file cambiati).
+
+### 8. Indicizza il corpus
+
+```bash
+# slide del corso, usate da /gps-domanda e /gps-valida
+php artisan slides:import /percorso/alle/slide
+
+# progetto esempio (documenti di riferimento reali), usato solo da /gps-valida
+php artisan validation-refs:import /percorso/al/progetto/esempio
+```
+
+In alternativa alle slide si può usare il pannello `/admin/slides` (login con `ADMIN_PASSWORD`) per caricare e indicizzare i PDF da browser.
+
+## Comandi utili
+
+| Comando | Cosa fa |
+|---|---|
+| `php artisan slides:import <cartella>` | Importa e indicizza in blocco i PDF delle slide |
+| `php artisan validation-refs:import <cartella>` | Importa e indicizza i documenti di riferimento del progetto esempio |
+| `php artisan test:gps-domanda` | Esegue un set di domande di test contro `/gps-domanda` e stampa le risposte |
+| `php artisan test:gps-valida <cartella-pdf-di-prova>` | Verifica il retrieval e valida un campione di PDF per tutti i 17 tipi documento |
+
+## Limiti noti
+
+Il modello LLM locale (8 miliardi di parametri, scelto per restare offline e senza costi) non garantisce un comportamento stabile a parità di input: stesso documento, esecuzioni diverse possono produrre risultati di qualità sensibilmente diversa. Sono stati introdotti alcuni meccanismi di mitigazione (output strutturato via JSON schema, retry automatico, traduzione post-hoc, filtro di privacy sui nomi reali) ma il non determinismo di fondo resta un limite strutturale, non un bug risolvibile. Dettagli, metodologia di test e dati completi nei report di validazione prodotti durante lo sviluppo.
+
+## Autore
+
+Antonio De Lucia — progetto di tesi, Università degli Studi di Salerno.

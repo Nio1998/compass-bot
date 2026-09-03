@@ -48,6 +48,9 @@ return [
         // Server ChromaDB self-hosted (vedi HasSlidesVectorStore).
         'host'       => env('CHROMA_HOST', 'http://localhost:8000'),
         'collection' => env('CHROMA_COLLECTION', 'gps_slides'),
+        // Documenti di riferimento reali (progetto esempio) usati solo da
+        // GpsDocumentValidator, mai da GpsQaBot — vedi CompositeVectorStore.
+        'validation_collection' => env('CHROMA_VALIDATION_COLLECTION', 'gps_validation_refs'),
     ],
 
     // Password del mini pannello admin (upload/ingestione slide), niente sistema utenti.

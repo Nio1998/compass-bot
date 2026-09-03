@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Rag\GpsQaBot;
+use App\Rag\PrivacyRedactor;
 use App\Services\SlackResponder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -37,6 +38,7 @@ class ProcessGpsQuestionJob implements ShouldQueue
                 ->chat(new UserMessage($this->question))
                 ->getMessage()
                 ->getContent() ?? '';
+            $answer = PrivacyRedactor::redact($answer);
 
             // La domanda digitata dallo studente non compare mai come messaggio
             // Slack (comportamento standard degli slash command): la ripetiamo
