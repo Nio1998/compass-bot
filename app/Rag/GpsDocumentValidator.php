@@ -52,9 +52,9 @@ class GpsDocumentValidator extends RAG
         // timeout con 0 byte ricevuti prima ancora di iniziare a rispondere.
         return new Ollama(
             url: (string) config('services.ollama.url'),
-            model: (string) config('services.ollama.model'),
+            model: (string) config('services.ollama.validation_model'),
             parameters: ['options' => ['temperature' => 0.1]],
-            httpClient: new GuzzleHttpClient(timeout: 180.0),
+            httpClient: new GuzzleHttpClient(timeout: 240.0),
         );
     }
 
@@ -120,6 +120,8 @@ class GpsDocumentValidator extends RAG
             "REGOLA ASSOLUTA SUL GROUNDING: prima di scrivere qualcosa in 'errori strutturali' o 'elementi mancanti', rileggi il testo del documento parola per parola. Se un campo o una sezione è presente anche solo parzialmente compilato (es. una data scritta, un elenco firmatari, un campo 'Oggetto' valorizzato), NON puoi dichiararlo mancante o assente: sarebbe una contraddizione con quanto hai già osservato in presentElements. Puoi commentarne la qualità o la completezza (es. 'la sezione discussione tratta un solo punto, poco dettagliato'), ma mai la sua assenza se è presente.",
             "",
             "REGOLA ASSOLUTA SU 'ERRORI STRUTTURALI' vs 'ELEMENTI MANCANTI': sono due categorie diverse, non intercambiabili. 'Errori strutturali' = qualcosa CHE C'È ma è fatto male (usa verbi come 'è presente ma...', 'c'è ma manca...'). 'Elementi mancanti' = qualcosa che NON C'È PROPRIO, nemmeno abbozzato. Non scrivere mai la stessa frase in entrambi i campi, e non usare parole come 'manca'/'non fornisce'/'non è presente' per descrivere qualcosa che hai già segnato come presente.",
+            "",
+            "REGOLA ASSOLUTA SUL MESSAGGIO '[Controllo automatico via codice...]' (se presente all'inizio del documento): è un'informazione SOLO per te, per aiutarti a decidere cosa è presente o mancante — non è mai una critica al documento e non va MAI citata, ripetuta o parafrasata in nessun campo della risposta (né in errori strutturali, né in elementi mancanti, né in suggerimenti). Usala per decidere cosa scrivere, non copiarla.",
             "",
             "Sei un assistente del corso di Gestione dei Progetti Software (GPS). Il documento allegato dallo studente ti viene fornito come testo estratto da un PDF. Ti vengono forniti anche passaggi di contesto recuperato: una parte dalle slide teoriche del corso, una parte da un progetto esempio reale — usali SOLO come metro di paragone per giudicare il documento dello studente, mai come contenuto da copiare o imitare nella tua risposta.",
             "",

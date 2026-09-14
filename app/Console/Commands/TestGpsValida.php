@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Rag\DocumentSectionChecker;
 use App\Rag\DocumentTypes;
 use App\Rag\GpsDocumentValidator;
 use App\Rag\PrivacyRedactor;
@@ -116,11 +117,34 @@ class TestGpsValida extends Command
                     continue;
                 }
 
+                // Calcolati UNA VOLTA sul testo originale, prima di anteporre
+                // la nota per il modello (altrimenti la nota stessa farebbe
+                // "trovare" sezioni in realtà assenti al ricalcolo successivo).
+                $presentSections = DocumentSectionChecker::detectPresent($type, $text);
+                $missingSections = DocumentSectionChecker::detectMissing($type, $text);
+
+                // Se nessuna sezione del template del corso viene trovata, il
+                // documento probabilmente segue una struttura diversa (visto
+                // su un documento reale non scritto per il corso). Forzare
+                // comunque la lista "mancanti" ha fatto sì che il modello si
+                // limitasse a copiarla invece di analizzare il contenuto —
+                // la nota scatta quindi solo con adesione almeno parziale.
+                if ($presentSections !== []) {
+                    $lines = ['[Controllo automatico via codice, non generato dal modello:'];
+                    $lines[] = 'sezioni RILEVATE come presenti nel testo: ' . implode(', ', $presentSections) . '. Non puoi dichiararle mancanti o assenti.';
+                    if ($missingSections !== []) {
+                        $lines[] = 'sezioni del template del corso NON rilevate nel testo: ' . implode(', ', $missingSections) . '. Non serve che tu le riporti in "elementi mancanti" — verranno aggiunte automaticamente dal sistema — concentrati invece su "errori strutturali" e "suggerimenti" per il resto del documento.';
+                    }
+                    $text = implode(' ', $lines) . "]\n\n" . $text;
+                }
+
                 $start = microtime(true);
 
                 [$feedback, $attempts] = $this->validateWithRetry($type, $text);
 
+                $feedback = $this->filterFabricatedContent($feedback);
                 $feedback = $this->translateIfNeeded($feedback);
+                $feedback = $this->applySectionChecklist($feedback, $missingSections);
                 $body = PrivacyRedactor::redact($this->formatFeedback($feedback, DocumentTypes::label($type)));
 
                 $elapsed = round(microtime(true) - $start, 1);
@@ -178,7 +202,8 @@ class TestGpsValida extends Command
             return $feedback;
         }
 
-        $translateEach = fn (array $items) => array_map(fn (string $i) => TranslateToItalian::translate($i), $items);
+        $validationModel = (string) config('services.ollama.validation_model');
+        $translateEach = fn (array $items) => array_map(fn (string $i) => TranslateToItalian::translate($i, $validationModel), $items);
 
         return new ValidationFeedback(
             documentType: $feedback->documentType,
@@ -187,6 +212,56 @@ class TestGpsValida extends Command
             structuralErrors: $translateEach($feedback->structuralErrors),
             missingElements: $translateEach($feedback->missingElements),
             suggestions: $translateEach($feedback->suggestions),
+        );
+    }
+
+    /**
+     * @param string[] $missingSections
+     */
+    private function applySectionChecklist(ValidationFeedback $feedback, array $missingSections): ValidationFeedback
+    {
+        if ($missingSections === []) {
+            return $feedback;
+        }
+
+        $missingElements = $feedback->missingElements;
+        foreach ($missingSections as $section) {
+            $alreadyMentioned = false;
+            foreach ($missingElements as $existing) {
+                if (mb_stripos($existing, $section) !== false) {
+                    $alreadyMentioned = true;
+                    break;
+                }
+            }
+            if (!$alreadyMentioned) {
+                $missingElements[] = $section;
+            }
+        }
+
+        return new ValidationFeedback(
+            documentType: $feedback->documentType,
+            comparisonReasoning: $feedback->comparisonReasoning,
+            presentElements: $feedback->presentElements,
+            structuralErrors: $feedback->structuralErrors,
+            missingElements: $missingElements,
+            suggestions: $feedback->suggestions,
+        );
+    }
+
+    private function filterFabricatedContent(ValidationFeedback $feedback): ValidationFeedback
+    {
+        $clean = fn (array $items, int $maxItems) => array_slice(array_values(array_filter(
+            $items,
+            fn (string $i) => mb_strlen($i) <= 400 && substr_count($i, "\n") < 2,
+        )), 0, $maxItems);
+
+        return new ValidationFeedback(
+            documentType: $feedback->documentType,
+            comparisonReasoning: $feedback->comparisonReasoning,
+            presentElements: $feedback->presentElements,
+            structuralErrors: $clean($feedback->structuralErrors, 6),
+            missingElements: $clean($feedback->missingElements, 8),
+            suggestions: $clean($feedback->suggestions, 3),
         );
     }
 

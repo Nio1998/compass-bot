@@ -65,6 +65,14 @@ class PrivacyRedactor
             $result = preg_replace('/\b' . preg_quote($projectName, '/') . '\b/u', '[progetto omesso]', $result) ?? $result;
         }
 
+        // Indirizzi email: pattern generico, non una lista fissa — nei
+        // documenti di riferimento reali compaiono email universitarie di
+        // studenti (es. nome.cognome@studenti.unisa.it), scoperte leggendo il
+        // corpus direttamente. Una lista fissa coprirebbe solo quelle già
+        // viste; il pattern intercetta qualunque email, comprese quelle non
+        // ancora individuate manualmente.
+        $result = preg_replace('/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/ui', '[email omessa]', $result) ?? $result;
+
         return $result;
     }
 }

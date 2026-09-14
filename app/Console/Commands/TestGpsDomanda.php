@@ -43,14 +43,18 @@ class TestGpsDomanda extends Command
 
     public function handle(): int
     {
-        $bot = GpsQaBot::make();
-
         foreach (self::QUESTIONS as $i => $question) {
             $this->line('=========================================================');
             $this->info('[' . ($i + 1) . '/' . count(self::QUESTIONS) . "] D: {$question}");
             $this->newLine();
 
             try {
+                // Istanza fresca per ogni domanda: su Slack ogni /gps-domanda è
+                // una richiesta indipendente (vedi ProcessGpsQuestionJob), mai
+                // la stessa istanza riusata più volte. Riusarla qui avrebbe
+                // fatto sì che un errore su una domanda corrompesse la
+                // cronologia interna e mandasse in errore tutte le successive.
+                $bot = GpsQaBot::make();
                 $start = microtime(true);
                 $answer = $bot->chat(new UserMessage($question))->getMessage()->getContent() ?? '';
                 $elapsed = round(microtime(true) - $start, 1);

@@ -49,14 +49,22 @@ class TranslateToItalian
         return $italianHits >= $englishHits;
     }
 
-    public static function translate(string $text): string
+    /**
+     * @param string|null $model Modello Ollama da usare per la traduzione. Di
+     *     default quello generico (services.ollama.model) — usato per
+     *     l'import in blocco del corpus, dove la velocità conta più della
+     *     qualità. I chiamanti che traducono l'output di /gps-valida passano
+     *     esplicitamente services.ollama.validation_model, per restare
+     *     coerenti con il modello che ha generato il testo da tradurre.
+     */
+    public static function translate(string $text, ?string $model = null): string
     {
         $text = trim($text);
         if ($text === '') {
             return $text;
         }
 
-        $model = (string) config('services.ollama.model');
+        $model = $model ?? (string) config('services.ollama.model');
         $url   = rtrim((string) config('services.ollama.url'), '/') . '/generate';
 
         $prompt = <<<TXT
