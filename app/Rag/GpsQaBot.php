@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Rag;
 
+use NeuronAI\HttpClient\GuzzleHttpClient;
 use NeuronAI\Providers\AIProviderInterface;
 use NeuronAI\Providers\Ollama\Ollama;
 use NeuronAI\RAG\Embeddings\EmbeddingsProviderInterface;
@@ -30,6 +31,11 @@ class GpsQaBot extends RAG
             // meno "creatività" che porta a citare fatti/nomi non presenti
             // nelle slide indicizzate.
             parameters: ['options' => ['temperature' => 0.1]],
+            // Il timeout di default (60s) è già stato visto scattare su
+            // domande più impegnative (vedi lo stesso problema risolto su
+            // GpsDocumentValidator) — qui il margine è minore perché le
+            // risposte di /gps-domanda sono in genere più brevi.
+            httpClient: new GuzzleHttpClient(timeout: 120.0),
         );
     }
 

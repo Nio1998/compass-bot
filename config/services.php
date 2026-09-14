@@ -42,6 +42,11 @@ return [
         'url'              => env('OLLAMA_URL', 'http://localhost:11434/api'),
         'model'            => env('OLLAMA_MODEL', 'llama3'),
         'embedding_model'  => env('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'),
+        // Modello usato SOLO da /gps-valida (GpsDocumentValidator). Separato da
+        // "model" (usato da /gps-domanda) per poter testare un modello più
+        // grande sulla validazione documenti senza toccare la Q&A, che va già
+        // bene con il modello attuale. Se non impostato, usa lo stesso modello.
+        'validation_model' => env('OLLAMA_VALIDATION_MODEL', env('OLLAMA_MODEL', 'llama3')),
     ],
 
     'chroma' => [
