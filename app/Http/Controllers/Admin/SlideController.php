@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SlideDocument;
 use App\Rag\GpsQaBot;
 use App\Rag\SmalotPdfReader;
+use App\Rag\TranslateToItalian;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -63,7 +64,13 @@ class SlideController extends Controller
                 ->withSplitter(new SentenceTextSplitter(maxWords: 200, overlapWords: 20, minWords: 20))
                 ->getDocuments();
 
+            $sample = implode(' ', array_map(fn ($d) => $d->content, array_slice($documents, 0, 3)));
+            $needsTranslation = !TranslateToItalian::looksItalian($sample);
+
             foreach ($documents as $document) {
+                if ($needsTranslation) {
+                    $document->content = TranslateToItalian::translate($document->content);
+                }
                 $document->sourceType = self::SOURCE_TYPE;
                 $document->sourceName = $slide->original_name;
             }
