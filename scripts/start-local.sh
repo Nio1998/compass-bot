@@ -49,7 +49,7 @@ if pgrep -f "queue:work" > /dev/null; then
     echo "già attivo"
 else
     cd "$PROJECT_DIR"
-    nohup php artisan queue:work > "$RUN_DIR/queue.log" 2>&1 &
+    nohup php -d memory_limit=512M artisan queue:work > "$RUN_DIR/queue.log" 2>&1 &
     echo $! > "$RUN_DIR/queue.pid"
     disown
     echo "avviato (pid $(cat "$RUN_DIR/queue.pid"))"

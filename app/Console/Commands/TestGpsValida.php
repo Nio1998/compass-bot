@@ -120,6 +120,7 @@ class TestGpsValida extends Command
                 // Calcolati UNA VOLTA sul testo originale, prima di anteporre
                 // la nota per il modello (altrimenti la nota stessa farebbe
                 // "trovare" sezioni in realtà assenti al ricalcolo successivo).
+                $originalText = $text;
                 $presentSections = DocumentSectionChecker::detectPresent($type, $text);
                 $missingSections = DocumentSectionChecker::detectMissing($type, $text);
 
@@ -142,7 +143,7 @@ class TestGpsValida extends Command
 
                 [$feedback, $attempts] = $this->validateWithRetry($type, $text);
 
-                $feedback = $this->filterFabricatedContent($feedback);
+                $feedback = $this->filterFabricatedContent($feedback, $originalText);
                 $feedback = $this->translateIfNeeded($feedback);
                 $feedback = $this->applySectionChecklist($feedback, $missingSections);
                 $body = PrivacyRedactor::redact($this->formatFeedback($feedback, DocumentTypes::label($type)));
@@ -248,21 +249,90 @@ class TestGpsValida extends Command
         );
     }
 
-    private function filterFabricatedContent(ValidationFeedback $feedback): ValidationFeedback
+    private function filterFabricatedContent(ValidationFeedback $feedback, string $originalText): ValidationFeedback
     {
         $clean = fn (array $items, int $maxItems) => array_slice(array_values(array_filter(
             $items,
-            fn (string $i) => mb_strlen($i) <= 400 && substr_count($i, "\n") < 2,
+            fn (string $i) => mb_strlen($i) <= 400 && substr_count($i, "\n") < 2 && !$this->isSelfContradictory($i),
         )), 0, $maxItems);
+
+        $missingElements = array_values(array_filter(
+            $clean($feedback->missingElements, 8),
+            fn (string $i) => !$this->isFalseAbsenceClaim($i, $originalText),
+        ));
 
         return new ValidationFeedback(
             documentType: $feedback->documentType,
             comparisonReasoning: $feedback->comparisonReasoning,
             presentElements: $feedback->presentElements,
             structuralErrors: $clean($feedback->structuralErrors, 6),
-            missingElements: $clean($feedback->missingElements, 8),
+            missingElements: $missingElements,
             suggestions: $clean($feedback->suggestions, 3),
         );
+    }
+
+    private function isFalseAbsenceClaim(string $item, string $originalText): bool
+    {
+        $hasAbsenceTrigger = (bool) preg_match(
+            '/(non\s+(?:è|sono|viene|vengono|ci\s+sono|risulta(?:no)?)\s+\w*\s*(?:specific\w*|indic\w*|defin\w*|present\w*|chiar\w*|menzion\w*))|(\bmanca\w*\b)|(\bassent\w*\b)/ui',
+            $item,
+        );
+
+        if (!$hasAbsenceTrigger) {
+            return false;
+        }
+
+        preg_match_all('/\p{L}{5,}/u', $item, $matches);
+
+        static $stopwords = [
+            'specificato', 'specificata', 'specificati', 'specificate', 'specificazione',
+            'indicato', 'indicata', 'indicati', 'indicate', 'indicazione', 'indicazioni',
+            'definito', 'definita', 'definiti', 'definite', 'definizione',
+            'presente', 'presenti', 'chiaramente', 'chiaro', 'chiara',
+            'menzionato', 'menzionata', 'menzionati', 'menzionate',
+            'mancano', 'manca', 'mancante', 'mancanti', 'assente', 'assenti',
+            'potrebbe', 'potrebbero', 'questo', 'questa', 'questi', 'queste',
+            'documento', 'attività', 'attivita', 'elemento', 'elementi',
+            'progetto', 'sistema', 'sezione', 'sezioni',
+        ];
+
+        $candidates = array_diff(array_map(mb_strtolower(...), $matches[0]), $stopwords);
+
+        if ($candidates === []) {
+            return false;
+        }
+
+        $textLower = mb_strtolower($originalText);
+        $hits = 0;
+
+        foreach ($candidates as $word) {
+            $stem = mb_strlen($word) >= 6 ? mb_substr($word, 0, 6) : $word;
+            if (mb_strpos($textLower, $stem) !== false) {
+                $hits++;
+            }
+        }
+
+        return $hits >= 1;
+    }
+
+    /**
+     * Scarta un pattern osservato su un documento reale (non uno dei
+     * sintetici di test): il modello dichiara un elemento "mancante" e nella
+     * stessa frase ammette che è invece indicato/specificato altrove nel
+     * documento — es. "Non è specificato chi approva le attività, anche se è
+     * indicato che sono state approvate da...". La frase è autocontraddittoria
+     * per costruzione: se qualcosa è indicato da qualche parte, per
+     * definizione non è un elemento mancante. Non richiede alcun giudizio del
+     * modello, solo un riconoscimento testuale di negazione + concessione +
+     * conferma nella stessa frase.
+     */
+    private function isSelfContradictory(string $item): bool
+    {
+        $hasNegation = (bool) preg_match('/non\s+(?:è|viene|sono|risulta(?:no)?)\s+\w*\s*(?:specificat|indicat)/ui', $item);
+        $hasConcession = (bool) preg_match('/\b(anche se|sebbene|nonostante|seppur|pur essendo)\b/ui', $item);
+        $hasConfirmation = (bool) preg_match('/\b(indicat\w*|specificat\w*)\b/ui', $item);
+
+        return $hasNegation && $hasConcession && $hasConfirmation;
     }
 
     private function formatFeedback(ValidationFeedback $feedback, string $docTypeLabel): string

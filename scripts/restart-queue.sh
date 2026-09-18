@@ -15,7 +15,12 @@ pkill -f "queue:work" 2>/dev/null && echo "fermato il worker precedente" || echo
 sleep 1
 
 cd "$PROJECT_DIR"
-nohup php artisan queue:work > "$RUN_DIR/queue.log" 2>&1 &
+# memory_limit alzato rispetto al default CLI (128M): un PDF pesante/complesso
+# può esaurirlo durante il parsing (visto in produzione — errore fatale non
+# catturabile da try/catch che termina l'intero processo worker, lasciando
+# tutte le richieste successive bloccate in coda senza nessun errore visibile
+# allo studente).
+nohup php -d memory_limit=512M artisan queue:work > "$RUN_DIR/queue.log" 2>&1 &
 echo $! > "$RUN_DIR/queue.pid"
 disown
 sleep 1
